@@ -1,41 +1,84 @@
 import { describe, expect, test } from "bun:test";
 import dgram from "node:dgram";
+import { DNS_RCODE, DNS_RECORD_TYPES } from "../dns/constants";
+import { encodeMessage, decodeMessage } from "../dns/message";
 import { createDNSServer } from "./udp";
 
-describe("UDP DNS server", () => {
-  test("returns a DNS response for a query", async () => {
-    const server = createDNSServer({ port: 15353 });
-    await server.start();
+async function queryServer(port: number, name: string, type: number): Promise<Buffer> {
+  const client = dgram.createSocket("udp4");
 
-    const client = dgram.createSocket("udp4");
-
-    const response = await new Promise<Buffer>((resolve, reject) => {
+  try {
+    return await new Promise<Buffer>((resolve, reject) => {
       client.once("message", (message) => resolve(message));
       client.once("error", reject);
 
-      const query = Buffer.from([
-        0x12, 0x34,
-        0x01, 0x00,
-        0x00, 0x01,
-        0x00, 0x00,
-        0x00, 0x00,
-        0x00, 0x00,
-        0x07, ...Buffer.from("example"),
-        0x03, ...Buffer.from("com"),
-        0x00,
-        0x00, 0x01,
-        0x00, 0x01,
-      ]);
+      const query = encodeMessage({
+        header: {
+          id: 0x1234,
+          flags: 0x0100,
+          questions: 1,
+          answers: 0,
+          authorities: 0,
+          additionals: 0,
+        },
+        questions: [{ name, type, class: 1 }],
+        answers: [],
+        authorities: [],
+        additionals: [],
+      });
 
-      client.send(query, 15353, "127.0.0.1");
+      client.send(query, port, "127.0.0.1");
     });
-
-    expect(response.subarray(0, 2)).toEqual(Buffer.from([0x12, 0x34]));
-    expect(response.readUInt16BE(2) & 0x8000).toBe(0x8000);
-    expect(response.readUInt16BE(4)).toBe(1);
-    expect(response.readUInt16BE(6)).toBe(0);
-
+  } finally {
     client.close();
+  }
+}
+
+describe("UDP DNS server", () => {
+  test("returns an authoritative A answer", async () => {
+    const server = createDNSServer({ port: 15353 });
+    await server.start();
+
+    const response = await queryServer(15353, "example.com", DNS_RECORD_TYPES.A);
+    const message = decodeMessage(response);
+
+    expect(message.header.id).toBe(0x1234);
+    expect(message.header.flags & 0x8000).toBe(0x8000);
+    expect(message.header.flags & 0x0400).toBe(0x0400);
+    expect(message.header.flags & 0x000f).toBe(DNS_RCODE.NOERROR);
+    expect(message.answers).toHaveLength(1);
+    expect(message.answers[0]?.data).toEqual(Buffer.from([127, 0, 0, 1]));
+
+    await server.stop();
+  });
+
+  test("returns NXDOMAIN for an unknown name", async () => {
+    const server = createDNSServer({ port: 15354 });
+    await server.start();
+
+    const response = await queryServer(15354, "missing.example.com", DNS_RECORD_TYPES.A);
+    const message = decodeMessage(response);
+
+    expect(message.header.flags & 0x000f).toBe(DNS_RCODE.NXDOMAIN);
+    expect(message.answers).toHaveLength(0);
+
+    await server.stop();
+  });
+
+  test("returns other authoritative record types", async () => {
+    const server = createDNSServer({ port: 15355 });
+    await server.start();
+
+    const nsResponse = decodeMessage(
+      await queryServer(15355, "example.com", DNS_RECORD_TYPES.NS),
+    );
+    const soaResponse = decodeMessage(
+      await queryServer(15355, "example.com", DNS_RECORD_TYPES.SOA),
+    );
+
+    expect(nsResponse.answers[0]?.type).toBe(DNS_RECORD_TYPES.NS);
+    expect(soaResponse.answers[0]?.type).toBe(DNS_RECORD_TYPES.SOA);
+
     await server.stop();
   });
 });

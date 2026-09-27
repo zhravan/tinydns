@@ -12,3 +12,12 @@ export const DNS_RECORD_TYPES = {
 export const DNS_CLASSES = {
   IN: 1,
 } as const;
+
+export const DNS_RCODE = {
+  NOERROR: 0,
+  FORMERR: 1,
+  SERVFAIL: 2,
+  NXDOMAIN: 3,
+  NOTIMP: 4,
+  REFUSED: 5,
+} as const;

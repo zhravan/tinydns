@@ -4,11 +4,7 @@ import { decodeName, encodeName } from "./name";
 describe("DNS names", () => {
   test("encodes a domain name as DNS labels", () => {
     expect(encodeName("example.com")).toEqual(
-      Buffer.from([
-        0x07, ...Buffer.from("example"),
-        0x03, ...Buffer.from("com"),
-        0x00,
-      ]),
+      Buffer.from([0x07, ...Buffer.from("example"), 0x03, ...Buffer.from("com"), 0x00]),
     );
   });
 
@@ -28,16 +24,24 @@ describe("DNS names", () => {
 
   test("decodes a DNS name", () => {
     const buffer = encodeName("example.com");
+    expect(decodeName(buffer)).toEqual({ name: "example.com", offset: buffer.length });
+  });
 
-    expect(decodeName(buffer)).toEqual({
+  test("decodes a compression pointer", () => {
+    const buffer = Buffer.concat([
+      encodeName("example.com"),
+      Buffer.from([0xc0, 0x00]),
+    ]);
+
+    expect(decodeName(buffer, encodeName("example.com").length)).toEqual({
       name: "example.com",
       offset: buffer.length,
     });
   });
 
-  test("rejects unsupported compression pointers for now", () => {
-    expect(() => decodeName(Buffer.from([0xc0, 0x0c]))).toThrow(
-      "DNS name compression is not implemented yet",
+  test("rejects compression loops", () => {
+    expect(() => decodeName(Buffer.from([0xc0, 0x00]))).toThrow(
+      "DNS name compression loop",
     );
   });
 });

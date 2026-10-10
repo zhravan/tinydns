@@ -13,6 +13,15 @@ describe("extended DNS record types", () => {
     });
   });
 
+  test("rejects malformed IPv6 addresses", () => {
+    expect(() => createAAAARecord("bad.example.com", "1:2:3:4:5:6:7:8::")).toThrow(
+      "Invalid IPv6 address",
+    );
+    expect(() => createAAAARecord("bad.example.com", "not-ipv6")).toThrow(
+      "Invalid IPv6 address",
+    );
+  });
+
   test("round-trips MX records", () => {
     const record = createMXRecord("example.com", "mail.example.com", 20, 600);
     expect(decodeMXRecord(encodeMXRecord(record))).toEqual(record);

@@ -1,3 +1,4 @@
+import { isIPv6 } from "node:net";
 import { DNS_CLASSES, DNS_RECORD_TYPES } from "./constants";
 import type { DNSRecord } from "./record";
 
@@ -9,21 +10,38 @@ export interface AAAARecord {
 }
 
 function parseIPv6(address: string): Buffer {
-  const parts = address.split("::");
+  if (!isIPv6(address)) throw new Error("Invalid IPv6 address");
+
+  let normalized = address.toLowerCase();
+  if (normalized.includes(".")) {
+    const lastColon = normalized.lastIndexOf(":");
+    const ipv4 = normalized.slice(lastColon + 1).split(".").map(Number);
+    if (
+      ipv4.length !== 4 ||
+      ipv4.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+    ) {
+      throw new Error("Invalid IPv6 address");
+    }
+    const high = ((ipv4[0]! << 8) | ipv4[1]!).toString(16);
+    const low = ((ipv4[2]! << 8) | ipv4[3]!).toString(16);
+    normalized = `${normalized.slice(0, lastColon + 1)}${high}:${low}`;
+  }
+
+  const parts = normalized.split("::");
   if (parts.length > 2) throw new Error("Invalid IPv6 address");
+  const left = parts[0] ? parts[0].split(":") : [];
+  const right = parts.length === 2 && parts[1] ? parts[1].split(":") : [];
+  const missing = 8 - left.length - right.length;
 
-  const left = parts[0] ? parts[0].split(":").filter(Boolean) : [];
-  const right = parts[1] ? parts[1].split(":").filter(Boolean) : [];
-
-  if (left.length + right.length > 8) throw new Error("Invalid IPv6 address");
+  if (parts.length === 2 && missing < 1) throw new Error("Invalid IPv6 address");
+  if (parts.length === 1 && missing !== 0) throw new Error("Invalid IPv6 address");
 
   const groups = [
     ...left,
-    ...Array(8 - left.length - right.length).fill("0"),
+    ...Array(parts.length === 2 ? missing : 0).fill("0"),
     ...right,
   ];
-
-  if (groups.length !== 8 || groups.some((group) => !/^[0-9a-fA-F]{1,4}$/.test(group))) {
+  if (groups.length !== 8 || groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) {
     throw new Error("Invalid IPv6 address");
   }
 

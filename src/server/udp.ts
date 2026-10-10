@@ -1,5 +1,5 @@
 import dgram from "node:dgram";
-import { DNS_CLASSES, DNS_RCODE } from "../dns/constants";
+import { DNS_RCODE } from "../dns/constants";
 import { decodeMessage, encodeMessage } from "../dns/message";
 import { createARecord, encodeARecord } from "../dns/a-record";
 import { createNSRecord, encodeNSRecord } from "../dns/ns-record";

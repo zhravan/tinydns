@@ -65,6 +65,29 @@ describe("UDP DNS server", () => {
     await server.stop();
   });
 
+  test("returns FORMERR for a truncated DNS query", async () => {
+    const server = createDNSServer({ port: 15356 });
+    await server.start();
+    const client = dgram.createSocket("udp4");
+    try {
+      const response = await new Promise<Buffer>((resolve, reject) => {
+        client.once("message", resolve);
+        client.once("error", reject);
+        const malformed = Buffer.alloc(12);
+        malformed.writeUInt16BE(0x4321, 0);
+        malformed.writeUInt16BE(0x0100, 2);
+        malformed.writeUInt16BE(1, 4);
+        client.send(malformed, 15356, "127.0.0.1");
+      });
+      const message = decodeMessage(response);
+      expect(message.header.id).toBe(0x4321);
+      expect(message.header.flags & 0x000f).toBe(DNS_RCODE.FORMERR);
+    } finally {
+      client.close();
+      await server.stop();
+    }
+  });
+
   test("returns other authoritative record types", async () => {
     const server = createDNSServer({ port: 15355 });
     await server.start();

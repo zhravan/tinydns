@@ -1,7 +1,7 @@
 import { DNS_RECORD_TYPES } from "./constants";
 import { decodeHeader, encodeHeader, type DNSHeader } from "./header";
 import { decodeName, encodeNameCompressed, type DNSCompressionMap } from "./name";
-import { decodeQuestion, encodeQuestion, type DNSQuestion } from "./question";
+import { decodeQuestion, type DNSQuestion } from "./question";
 import { decodeRecord, type DNSRecord } from "./record";
 
 export interface DNSMessage {
@@ -122,7 +122,6 @@ export function decodeMessage(buffer: Buffer): DNSMessage {
   }
   for (let index = 0; index < header.authorities; index += 1) {
     const decoded = decodeRecord(buffer, offset);
-    answers.length;
     offset = decoded.offset;
     authorities.push(decoded.record);
   }

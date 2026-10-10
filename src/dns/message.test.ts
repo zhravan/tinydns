@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { decodeMessage, encodeMessage } from "./message";
+import { encodeName } from "./name";
 
 describe("DNS messages", () => {
   test("encodes a query message", () => {
@@ -55,7 +56,6 @@ describe("DNS messages", () => {
   });
 
   test("compresses domain names inside CNAME RDATA", () => {
-    const { encodeName } = require("./name") as typeof import("./name");
     const message = {
       header: { id: 2, flags: 0x8000, questions: 1, answers: 1, authorities: 0, additionals: 0 },
       questions: [{ name: "example.com", type: 5, class: 1 }],

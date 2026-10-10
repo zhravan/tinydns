@@ -4,15 +4,17 @@ A DNS server built from scratch with Bun and TypeScript.
 
 This is a learning project focused on understanding DNS from the wire up.
 
-## Goals
+## Current capabilities
 
-- Understand the DNS wire format
-- Build DNS packet encoding and decoding from scratch
-- Implement a UDP DNS server
-- Support common DNS record types
-- Build an authoritative DNS server
-- Implement recursive resolution
-- Explore caching, TTLs, and TCP fallback
+- DNS wire-format message parsing and serialization
+- DNS name compression for owner names and domain-name RDATA
+- UDP authoritative DNS server
+- A, AAAA, CNAME, NS, SOA, MX, TXT, and PTR record encoders/decoders
+- In-memory zone lookup
+- FORMERR responses for malformed queries
+- Configurable bind host and port
+
+The implementation intentionally avoids DNS libraries.
 
 ## Development
 
@@ -24,6 +26,16 @@ bun run dev
 bun test
 ```
 
+## Configuration
+
+The server defaults to `127.0.0.1:5353`. Override it with environment variables:
+
+```bash
+TINYDNS_HOST=127.0.0.1 TINYDNS_PORT=5354 bun run dev
+```
+
+The server currently uses UDP. Recursive resolution, TCP transport, zone-file loading, and caching remain future goals.
+
 ## Learning approach
 
-The implementation intentionally avoids DNS libraries. Each feature is introduced in small, focused commits so the Git history doubles as a DNS learning path.
+Each feature is introduced in small, focused commits so the Git history doubles as a DNS learning path.

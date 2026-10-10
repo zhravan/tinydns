@@ -5,13 +5,10 @@ import { encodeName } from "./name";
 describe("DNS messages", () => {
   test("encodes a query message", () => {
     const message = {
-      header: {
-        id: 0x1234, flags: 0x0100, questions: 1, answers: 0, authorities: 0, additionals: 0,
-      },
+      header: { id: 0x1234, flags: 0x0100, questions: 1, answers: 0, authorities: 0, additionals: 0 },
       questions: [{ name: "example.com", type: 1, class: 1 }],
       answers: [], authorities: [], additionals: [],
     };
-
     expect(encodeMessage(message)).toEqual(Buffer.from([
       0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x07, ...Buffer.from("example"), 0x03, ...Buffer.from("com"), 0x00, 0x00, 0x01, 0x00, 0x01,
@@ -20,14 +17,11 @@ describe("DNS messages", () => {
 
   test("round-trips a message with an A answer", () => {
     const message = {
-      header: {
-        id: 0xabcd, flags: 0x8400, questions: 1, answers: 1, authorities: 0, additionals: 0,
-      },
+      header: { id: 0xabcd, flags: 0x8400, questions: 1, answers: 1, authorities: 0, additionals: 0 },
       questions: [{ name: "example.com", type: 1, class: 1 }],
       answers: [{ name: "example.com", type: 1, class: 1, ttl: 300, data: Buffer.from([127, 0, 0, 1]) }],
       authorities: [], additionals: [],
     };
-
     expect(decodeMessage(encodeMessage(message))).toEqual(message);
   });
 
@@ -36,10 +30,8 @@ describe("DNS messages", () => {
       header: { id: 1, flags: 0, questions: 0, answers: 1, authorities: 0, additionals: 0 },
       questions: [], answers: [], authorities: [], additionals: [],
     };
-
     expect(() => encodeMessage(message)).toThrow("Header answer count does not match answers");
   });
-});
 
   test("compresses repeated owner-name suffixes", () => {
     const message = {
@@ -49,13 +41,13 @@ describe("DNS messages", () => {
       authorities: [], additionals: [],
     };
     const wire = encodeMessage(message);
-    const answerOffset = 12 + Buffer.byteLength("\x07example\x03com\x00", "binary") + 4;
+    const answerOffset = 12 + encodeName("example.com").length + 4;
     expect(wire[answerOffset]).toBe(3);
     expect(wire[answerOffset + 4]).toBe(0xc0);
     expect(decodeMessage(wire).answers[0]?.name).toBe("www.example.com");
   });
 
-  test("compresses domain names inside CNAME RDATA", () => {
+  test("compresses domain names inside CNAME RDATA and decodes them losslessly", () => {
     const message = {
       header: { id: 2, flags: 0x8000, questions: 1, answers: 1, authorities: 0, additionals: 0 },
       questions: [{ name: "example.com", type: 5, class: 1 }],
